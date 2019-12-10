@@ -75,9 +75,10 @@ parser.add_argument('--rank', default=0, type=int,
 parser.add_argument('--gpu-rank', default=None,
                     help='If using distributed parallel for multi-gpu, sets the GPU for the process')
 parser.add_argument('--seed', default=123456, type=int, help='Seed to generators')
-parser.add_argument('--opt-level', type=str)
-parser.add_argument('--keep-batchnorm-fp32', type=str, default=None)
-parser.add_argument('--loss-scale', type=str, default=None)
+parser.add_argument('--opt-level', type=str, default='O0',
+                    help='Optimization level to use for training using Apex. Default is FP32 training. '
+                         'O1 is mixed precision and recommended for mixed precision hardware')
+parser.add_argument('--loss-scale', type=str, default=1)
 
 torch.manual_seed(123456)
 torch.cuda.manual_seed_all(123456)
