@@ -12,6 +12,7 @@ import scipy.signal
 import torch
 from scipy.io.wavfile import read
 import math
+import soundfile as sf
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 from .spec_augment import spec_augment
@@ -21,8 +22,9 @@ windows = {'hamming': scipy.signal.hamming, 'hann': scipy.signal.hann, 'blackman
 
 
 def load_audio(path):
-    sample_rate, sound = read(path)
-    sound = sound.astype('float32') / 32767  # normalize audio
+    sound, sample_rate = sf.read(path)
+    # sample_rate, sound = read(path)
+    # sound = sound.astype('float32') / 32767  # normalize audio
     if len(sound.shape) > 1:
         if sound.shape[1] == 1:
             sound = sound.squeeze()
@@ -73,7 +75,8 @@ class NoiseInjection(object):
         data_len = len(data) / self.sample_rate
         noise_start = np.random.rand() * (noise_len - data_len)
         noise_end = noise_start + data_len
-        noise_dst = audio_with_sox(noise_path, self.sample_rate, noise_start, noise_end)
+        noise_dst = audio_with_sox(
+            noise_path, self.sample_rate, noise_start, noise_end)
         assert len(data) == len(noise_dst)
         noise_energy = np.sqrt(noise_dst.dot(noise_dst) / noise_dst.size)
         data_energy = np.sqrt(data.dot(data) / data.size)
@@ -119,6 +122,7 @@ class SpectrogramParser(AudioParser):
         D = librosa.stft(y, n_fft=n_fft, hop_length=hop_length,
                          win_length=win_length, window=self.window)
         spect, phase = librosa.magphase(D)
+
         # S = log(S+1)
         spect = np.log1p(spect)
         spect = torch.FloatTensor(spect)
@@ -159,7 +163,8 @@ class SpectrogramDataset(Dataset, SpectrogramParser):
         self.ids = ids
         self.size = len(ids)
         self.labels_map = dict([(labels[i], i) for i in range(len(labels))])
-        super(SpectrogramDataset, self).__init__(audio_conf, normalize, speed_volume_perturb, spec_augment)
+        super(SpectrogramDataset, self).__init__(audio_conf,
+                                                 normalize, speed_volume_perturb, spec_augment)
 
     def __getitem__(self, index):
         sample = self.ids[index]
@@ -171,7 +176,8 @@ class SpectrogramDataset(Dataset, SpectrogramParser):
     def parse_transcript(self, transcript_path):
         with open(transcript_path, 'r', encoding='utf8') as transcript_file:
             transcript = transcript_file.read().replace('\n', '')
-        transcript = list(filter(None, [self.labels_map.get(x) for x in list(transcript)]))
+        transcript = list(
+            filter(None, [self.labels_map.get(x) for x in list(transcript)]))
         return transcript
 
     def __len__(self):
@@ -221,7 +227,8 @@ class BucketingSampler(Sampler):
         super(BucketingSampler, self).__init__(data_source)
         self.data_source = data_source
         ids = list(range(0, len(data_source)))
-        self.bins = [ids[i:i + batch_size] for i in range(0, len(ids), batch_size)]
+        self.bins = [ids[i:i + batch_size]
+                     for i in range(0, len(ids), batch_size)]
 
     def __iter__(self):
         for ids in self.bins:
@@ -248,10 +255,12 @@ class DistributedBucketingSampler(Sampler):
         self.data_source = data_source
         self.ids = list(range(0, len(data_source)))
         self.batch_size = batch_size
-        self.bins = [self.ids[i:i + batch_size] for i in range(0, len(self.ids), batch_size)]
+        self.bins = [self.ids[i:i + batch_size]
+                     for i in range(0, len(self.ids), batch_size)]
         self.num_replicas = num_replicas
         self.rank = rank
-        self.num_samples = int(math.ceil(len(self.bins) * 1.0 / self.num_replicas))
+        self.num_samples = int(
+            math.ceil(len(self.bins) * 1.0 / self.num_replicas))
         self.total_size = self.num_samples * self.num_replicas
 
     def __iter__(self):
@@ -259,7 +268,8 @@ class DistributedBucketingSampler(Sampler):
         # add extra samples to make it evenly divisible
         bins = self.bins + self.bins[:(self.total_size - len(self.bins))]
         assert len(bins) == self.total_size
-        samples = bins[offset::self.num_replicas]  # Get every Nth bin, starting from rank
+        # Get every Nth bin, starting from rank
+        samples = bins[offset::self.num_replicas]
         return iter(samples)
 
     def __len__(self):
@@ -274,7 +284,8 @@ class DistributedBucketingSampler(Sampler):
 
 
 def get_audio_length(path):
-    output = subprocess.check_output(['soxi -D \"%s\"' % path.strip()], shell=True)
+    output = subprocess.check_output(
+        ['soxi -D \"%s\"' % path.strip()], shell=True)
     return float(output)
 
 
@@ -298,7 +309,8 @@ def augment_audio_with_sox(path, sample_rate, tempo, gain):
     """
     with NamedTemporaryFile(suffix=".wav") as augmented_file:
         augmented_filename = augmented_file.name
-        sox_augment_params = ["tempo", "{:.3f}".format(tempo), "gain", "{:.3f}".format(gain)]
+        sox_augment_params = ["tempo", "{:.3f}".format(
+            tempo), "gain", "{:.3f}".format(gain)]
         sox_params = "sox \"{}\" -r {} -c 1 -b 16 -e si {} {} >/dev/null 2>&1".format(path, sample_rate,
                                                                                       augmented_filename,
                                                                                       " ".join(sox_augment_params))
