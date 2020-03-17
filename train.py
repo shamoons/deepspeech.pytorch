@@ -189,6 +189,7 @@ if __name__ == '__main__':
     wandb_tags = [socket.gethostname()]
     wandb.init(project="speech-reconstruction-with-deepspeech2",
                tags=','.join(wandb_tags))
+    wandb.init(sync_tensorboard=True)
     wandb.save('*.pt')
 
     # Set seeds for determinism
@@ -442,12 +443,12 @@ if __name__ == '__main__':
             'wer_results': wer_results
         }
 
-        wandb.log({
-            'avg_loss': avg_loss,
-            'loss_results': loss_results,
-            'cer_results': cer_results,
-            'wer_results': wer_results
-        })
+        # wandb.log({
+        #     'avg_loss': avg_loss,
+        #     'loss_results': loss_results,
+        #     'cer_results': cer_results,
+        #     'wer_results': wer_results
+        # })
 
         if args.visdom and main_proc:
             visdom_logger.update(epoch, values)
