@@ -400,7 +400,7 @@ if __name__ == '__main__':
                 file_path = '%s/deepspeech_checkpoint_epoch_%d_iter_%d.pth' % (
                     save_folder, epoch + 1, i + 1)
                 print("Saving checkpoint model to %s" % file_path)
-                torch.save(DeepSpeech.serialize(model, optimizer=optimizer, amp=amp, epoch=epoch, iteration=i,
+                torch.save(DeepSpeech.serialize(model, optimizer=optimizer, amp=None, epoch=epoch, iteration=i,
                                                 loss_results=loss_results,
                                                 wer_results=wer_results, cer_results=cer_results, avg_loss=avg_loss),
                            file_path)
@@ -454,7 +454,7 @@ if __name__ == '__main__':
 
         if main_proc and args.checkpoint:
             file_path = '%s/deepspeech_%d.pth.tar' % (save_folder, epoch + 1)
-            torch.save(DeepSpeech.serialize(model, optimizer=optimizer, amp=amp, epoch=epoch, loss_results=loss_results,
+            torch.save(DeepSpeech.serialize(model, optimizer=optimizer, amp=None, epoch=epoch, loss_results=loss_results,
                                             wer_results=wer_results, cer_results=cer_results),
                        file_path)
         # anneal lr
@@ -467,7 +467,7 @@ if __name__ == '__main__':
                   args.model_path)
             torch.save(baseline_m.state_dict(), os.path.join(wandb.run.dir, 'best-model.pt'))
 
-            torch.save(DeepSpeech.serialize(model, optimizer=optimizer, amp=amp, epoch=epoch, loss_results=loss_results,
+            torch.save(DeepSpeech.serialize(model, optimizer=optimizer, amp=None, epoch=epoch, loss_results=loss_results,
                                             wer_results=wer_results, cer_results=cer_results), args.model_path)
             best_wer = wer
             avg_loss = 0
