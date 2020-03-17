@@ -87,6 +87,8 @@ parser.add_argument('--model-path', default='models/deepspeech_final.pth',
                     help='Location to save best validation model')
 parser.add_argument('--continue-from', default='',
                     help='Continue from checkpoint model')
+parser.add_argument('--initialize-baseline', default='',
+                    help='Initialize baseline model from')
 parser.add_argument('--finetune', dest='finetune', action='store_true',
                     help='Finetune the model from checkpoint "continue_from"')
 parser.add_argument('--speed-volume-perturb', dest='speed_volume_perturb',
