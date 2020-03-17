@@ -1,23 +1,30 @@
+from utils import reduce_tensor, check_loss
+from test import evaluate
+from model import DeepSpeech, supported_rnns
+from logger import VisdomLogger, TensorBoardLogger
+from decoder import GreedyDecoder
+from data.data_loader import AudioDataLoader, SpectrogramDataset, BucketingSampler, DistributedBucketingSampler
+from torch.nn import CTCLoss
+from apex.parallel import DistributedDataParallel
+from apex import amp
+import torch.utils.data.distributed
+import torch.distributed as dist
+import numpy as np
 import argparse
 import json
 import os
+import sys
 import random
 import time
 
-import numpy as np
-import torch.distributed as dist
-import torch.utils.data.distributed
-from apex import amp
-from apex.parallel import DistributedDataParallel
-from torch.nn import CTCLoss
+parentdir = os.path.dirname(os.path.dirname(
+    os.path.dirname(os.path.realpath(__file__))))
+sys.path.append(parentdir)
+from baseline_model import BaselineModel
+
+
 # from warpctc_pytorch import CTCLoss
 
-from data.data_loader import AudioDataLoader, SpectrogramDataset, BucketingSampler, DistributedBucketingSampler
-from decoder import GreedyDecoder
-from logger import VisdomLogger, TensorBoardLogger
-from model import DeepSpeech, supported_rnns
-from test import evaluate
-from utils import reduce_tensor, check_loss
 
 parser = argparse.ArgumentParser(description='DeepSpeech training')
 parser.add_argument('--train-manifest', metavar='DIR',
@@ -208,11 +215,15 @@ if __name__ == '__main__':
         package = torch.load(args.continue_from,
                              map_location=lambda storage, loc: storage)
         model = DeepSpeech.load_model_package(package)
+
+        for param in model.parameters():
+            param.requires_grad = False
+
         labels = model.labels
         audio_conf = model.audio_conf
         if not args.finetune:  # Don't want to restart training
             optim_state = package['optim_dict']
-            amp_state = package['amp']
+            # amp_state = package['amp']
             start_epoch = int(package.get('epoch', 1)) - \
                 1  # Index start at 0 for training
             start_iter = package.get('iteration', None)
@@ -276,10 +287,19 @@ if __name__ == '__main__':
         print("Shuffling batches for the following epochs")
         train_sampler.shuffle(start_epoch)
 
+    baseline_m = BaselineModel(seq_length=32,
+                               feature_dim=161, make_4d=True)
+    # model = torch.nn.Sequential(baseline_m, model)
+
+    # print('model', model)
+    # print('baseline_m', baseline_m)
+    baseline_m = baseline_m.to(device)
     model = model.to(device)
     parameters = model.parameters()
     optimizer = torch.optim.SGD(parameters, lr=args.lr,
                                 momentum=args.momentum, nesterov=True, weight_decay=1e-5)
+    baseline_optimizer = torch.optim.Adam(
+        baseline_m.parameters(), lr=args.lr, weight_decay=1e-5)
 
     # model, optimizer = amp.initialize(model, optimizer,
     #                                   opt_level=args.opt_level,
@@ -293,7 +313,7 @@ if __name__ == '__main__':
 
     if args.distributed:
         model = DistributedDataParallel(model)
-    print(model)
+
     print("Number of parameters: %d" % DeepSpeech.get_param_size(model))
 
     criterion = torch.nn.CTCLoss(reduction='sum', zero_infinity=True)
@@ -309,15 +329,20 @@ if __name__ == '__main__':
             if i == len(train_sampler):
                 break
             inputs, targets, input_percentages, target_sizes = data
+            print('inputs.mean()', inputs.mean())
+            # print('baseline_input.size()', baseline_input.size())
+            baseline_output = baseline_m(inputs)
+            print('baseline_output.mean()', baseline_output.mean())
+
             input_sizes = input_percentages.mul_(int(inputs.size(3))).int()
             # measure data loading time
             data_time.update(time.time() - end)
             inputs = inputs.to(device)
 
-            out, output_sizes = model(inputs, input_sizes)
+            out, output_sizes = model(baseline_output, input_sizes)
             decoded_output, decoded_offsets = decoder.decode(out, output_sizes)
 
-            print(json.dumps(decode_results(decoded_output, decoded_offsets)))
+            # print(json.dumps(decode_results(decoded_output, decoded_offsets)))
             out = out.transpose(0, 1)  # TxNxH
             out = out.log_softmax(-1)
 
