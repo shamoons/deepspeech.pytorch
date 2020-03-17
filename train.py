@@ -299,6 +299,11 @@ if __name__ == '__main__':
 
     baseline_m = BaselineModel(seq_length=32,
                                feature_dim=161, make_4d=True)
+    if args.initialize_baseline:
+        print('Initializing Baseline:', args.initialize_baseline)
+        baseline_state_dict = torch.load(args.initialize_baseline, map_location=device)
+        baseline_m.load_state_dict(baseline_state_dict)
+
     # model = torch.nn.Sequential(baseline_m, model)
 
     # print('model', model)
@@ -344,7 +349,7 @@ if __name__ == '__main__':
                 inputs = inputs.cuda()
 
             baseline_output = baseline_m(inputs)
-            print(inputs.mean(), baseline_output.mean())
+            # print(inputs.mean(), baseline_output.mean())
 
             input_sizes = input_percentages.mul_(int(inputs.size(3))).int()
             # measure data loading time
