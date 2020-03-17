@@ -16,6 +16,9 @@ import os
 import sys
 import random
 import time
+import wandb
+import socket
+
 
 parentdir = os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.realpath(__file__))))
@@ -180,6 +183,11 @@ class AverageMeter(object):
 
 if __name__ == '__main__':
     args = parser.parse_args()
+    
+    wandb_tags = [socket.gethostname()]
+    wandb.init(project="speech-reconstruction-with-deepspeech2",
+               tags=','.join(wandb_tags))
+    wandb.save('*.pt')
 
     # Set seeds for determinism
     torch.manual_seed(args.seed)
@@ -395,9 +403,10 @@ if __name__ == '__main__':
                                                 wer_results=wer_results, cer_results=cer_results, avg_loss=avg_loss),
                            file_path)
             del loss, out, float_out
+            torch.save(baseline_m.state_dict(), os.path.join(wandb.run.dir, 'latest-model.pt'))
 
         avg_loss /= len(train_sampler)
-
+        
         epoch_time = time.time() - start_epoch_time
         print('Training Summary Epoch: [{0}]\t'
               'Time taken (s): {epoch_time:.0f}\t'
@@ -423,6 +432,14 @@ if __name__ == '__main__':
             'cer_results': cer_results,
             'wer_results': wer_results
         }
+
+        wandb.log({
+            'avg_loss': avg_loss,
+            'loss_results': loss_results,
+            'cer_results': cer_results,
+            'wer_results': wer_results
+        })
+
         if args.visdom and main_proc:
             visdom_logger.update(epoch, values)
         if args.tensorboard and main_proc:
@@ -446,6 +463,8 @@ if __name__ == '__main__':
         if main_proc and (best_wer is None or best_wer > wer):
             print("Found better validated model, saving to %s" %
                   args.model_path)
+            torch.save(baseline_m.state_dict(), os.path.join(wandb.run.dir, 'best-model.pt'))
+
             torch.save(DeepSpeech.serialize(model, optimizer=optimizer, amp=amp, epoch=epoch, loss_results=loss_results,
                                             wer_results=wer_results, cer_results=cer_results), args.model_path)
             best_wer = wer
