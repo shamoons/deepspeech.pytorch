@@ -273,9 +273,9 @@ if __name__ == '__main__':
     decoder = GreedyDecoder(labels)
 
     train_dataset = SpectrogramDataset(audio_conf=audio_conf, manifest_filepath=args.train_manifest, labels=labels,
-                                       normalize=True, speed_volume_perturb=args.speed_volume_perturb, spec_augment=args.spec_augment)
+                                       normalize=False, speed_volume_perturb=args.speed_volume_perturb, spec_augment=args.spec_augment)
     test_dataset = SpectrogramDataset(audio_conf=audio_conf, manifest_filepath=args.val_manifest, labels=labels,
-                                      normalize=True, speed_volume_perturb=False, spec_augment=False)
+                                      normalize=False, speed_volume_perturb=False, spec_augment=False)
     if not args.distributed:
         print('train_dataset', len(train_dataset))
 
@@ -337,10 +337,12 @@ if __name__ == '__main__':
             if i == len(train_sampler):
                 break
             inputs, targets, input_percentages, target_sizes = data
-            print('inputs.mean()', inputs.mean())
-            # print('baseline_input.size()', baseline_input.size())
+
+            if args.cuda:
+                inputs = inputs.cuda()
+
             baseline_output = baseline_m(inputs)
-            print('baseline_output.mean()', baseline_output.mean())
+            print(inputs.mean(), baseline_output.mean())
 
             input_sizes = input_percentages.mul_(int(inputs.size(3))).int()
             # measure data loading time
