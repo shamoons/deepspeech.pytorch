@@ -228,7 +228,7 @@ if __name__ == '__main__':
         model = DeepSpeech.load_model_package(package)
 
         for param in model.parameters():
-            param.requires_grad = False
+            param.requires_grad_(False)
 
         labels = model.labels
         audio_conf = model.audio_conf
@@ -298,8 +298,7 @@ if __name__ == '__main__':
         print("Shuffling batches for the following epochs")
         train_sampler.shuffle(start_epoch)
 
-    baseline_m = BaselineModel(seq_length=32,
-                               feature_dim=161, make_4d=True)
+    baseline_m = BaselineModel(feature_dim=161, make_4d=True)
     if args.initialize_baseline:
         print('Initializing Baseline:', args.initialize_baseline)
         baseline_state_dict = torch.load(args.initialize_baseline, map_location=device)
@@ -314,8 +313,8 @@ if __name__ == '__main__':
     parameters = model.parameters()
     optimizer = torch.optim.SGD(parameters, lr=args.lr,
                                 momentum=args.momentum, nesterov=True, weight_decay=1e-5)
-    baseline_optimizer = torch.optim.Adam(
-        baseline_m.parameters(), lr=args.lr, weight_decay=1e-5)
+    baseline_optimizer = torch.optim.SGD(baseline_m.parameters(), lr=args.lr,
+                                momentum=args.momentum, nesterov=True, weight_decay=1e-5)
 
     # model, optimizer = amp.initialize(model, optimizer,
     #                                   opt_level=args.opt_level,
@@ -349,9 +348,10 @@ if __name__ == '__main__':
             if args.cuda:
                 inputs = inputs.cuda()
 
+            # print(inputs.size(), inputs.min(), inputs.mean(), inputs.max())
             baseline_output = baseline_m(inputs)
-            # print(inputs.mean(), baseline_output.mean())
-
+            # print(baseline_output.size(), baseline_output.min(), baseline_output.mean(), baseline_output.max())
+            
             input_sizes = input_percentages.mul_(int(inputs.size(3))).int()
             # measure data loading time
             data_time.update(time.time() - end)
@@ -468,7 +468,14 @@ if __name__ == '__main__':
         # anneal lr
         for g in optimizer.param_groups:
             g['lr'] = g['lr'] / args.learning_anneal
-        print('Learning rate annealed to: {lr:.6f}'.format(lr=g['lr']))
+        print('DeepSpeech Learning rate annealed to: {lr:.6f}'.format(lr=g['lr']))
+
+        for g in baseline_optimizer.param_groups:
+            g['lr'] = g['lr'] / args.learning_anneal
+
+        print('Baseline Learning rate annealed to: {lr:.6f}'.format(lr=g['lr']))
+
+
 
         if main_proc and (best_wer is None or best_wer > wer):
             print("Found better validated model, saving to %s" %
