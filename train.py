@@ -348,9 +348,9 @@ if __name__ == '__main__':
             if args.cuda:
                 inputs = inputs.cuda()
 
-            # print(inputs.size(), inputs.min(), inputs.mean(), inputs.max())
+            print(inputs.size(), inputs.min(), inputs.mean(), inputs.max())
             baseline_output = baseline_m(inputs)
-            # print(baseline_output.size(), baseline_output.min(), baseline_output.mean(), baseline_output.max())
+            print(baseline_output.size(), baseline_output.min(), baseline_output.mean(), baseline_output.max())
             
             input_sizes = input_percentages.mul_(int(inputs.size(3))).int()
             # measure data loading time
