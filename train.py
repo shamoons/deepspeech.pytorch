@@ -23,7 +23,8 @@ import socket
 parentdir = os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.realpath(__file__))))
 sys.path.append(parentdir)
-from baseline_model import BaselineModel
+
+from utils.model_loader import load_masking_model
 
 
 # from warpctc_pytorch import CTCLoss
@@ -187,9 +188,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     wandb_tags = [socket.gethostname()]
-    wandb.init(project="speech-reconstruction-with-deepspeech2",
-               tags=','.join(wandb_tags))
-    wandb.init(sync_tensorboard=True)
+    wandb.init(project="jstsp-reconstruction-with-deepspeech2",
+               tags=','.join(wandb_tags), sync_tensorboard=True)
     wandb.save('*.pt')
 
     # Set seeds for determinism
@@ -198,7 +198,6 @@ if __name__ == '__main__':
     np.random.seed(args.seed)
     random.seed(args.seed)
 
-    device = torch.device("cuda" if args.cuda else "cpu")
     args.distributed = args.world_size > 1
     main_proc = True
     device = torch.device("cuda" if args.cuda else "cpu")
